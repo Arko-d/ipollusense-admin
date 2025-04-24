@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Simple Button Example</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="justify-content-center align-items-center vh-100">
+    <!-- Script to handle button click -->
+    <div>
+        <h1 class="text-center m-5">I-PolluSense Admin Panel</h1>
+    </div>
+    <div class="card m-5 p-5 overflow-auto" style="max-height: 70vh;">
+        <div id="no_records_msg">No records to display...</div>
+        <div id="row_fields"></div>
+    </div>
+    <!-- Modal -->
+    <div class="modal fade" id="dataModal">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="dataModalLabel"></h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="dataModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="copybutton">Copy JSON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAWY9n7hejx0StbnK5CKwNxVb1M2EoTPos",
+            authDomain: "ipollusense-admin-live.firebaseapp.com",
+            projectId: "ipollusense-admin-live",
+            storageBucket: "ipollusense-admin-live.firebasestorage.app",
+            messagingSenderId: "46311150885",
+            appId: "1:46311150885:web:5e1ee4c57a5afb0b70b6cc"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+    </script>
+    <script>
+        var activejson = null
+        function renderJSON(obj, indent = 0) {
+            let html = '';
+            const indentClass = `ms-${indent}`;
+
+            for (let key in obj) {
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    html += `<div class="${indentClass}"><strong>${key}:</strong></div>`;
+                    html += renderJSON(obj[key], indent + 3);
+                } else {
+                    html += `<div class="${indentClass}"><strong>${key}:</strong> ${obj[key]}</div>`;
+                }
+            }
+
+            return html;
+        }
+
+        var render_function = function () {
+            fetch("http://52.250.54.24:3500/api/node/getStatus", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: "{\"apiKey\":\"IPOLLUSENSE_ROCKS\"}"
+            })
+                .then(response => {
+                    // Check if the response is successful (status code 200-299)
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok ' + response.statusText);
+                    }
+                    return response.json(); // Parse the JSON data
+                })
+                .then(data => {
+                    if (data.data.length > 0) {
+                        document.getElementById("row_fields").innerHTML = ''
+                        let row = document.createElement("div")
+                        row.classList.add("row")
+                        row.classList.add("my-2")
+                        row.classList.add("py-2")
+                        let timecol = document.createElement("div")
+                        timecol.classList.add("col-4")
+                        timecol.innerHTML = "Time"
+                        let nodecol = document.createElement("div")
+                        nodecol.classList.add("col-4")
+                        nodecol.innerHTML = "Node ID"
+                        let statuscol = document.createElement("div")
+                        statuscol.classList.add("col-2")
+                        statuscol.innerHTML = "Sensor Status"
+                        row.appendChild(nodecol)
+                        row.appendChild(timecol)
+                        row.appendChild(statuscol)
+                        document.getElementById("row_fields").appendChild(row)
+                        limit1 = new Date(Date.now() + (5.5 * 60 * 60 * 1000) - (1 * 60 * 1000)).toISOString().replace('T', ' ').substring(0, 19)
+                        limit2 = new Date(Date.now() + (5.5 * 60 * 60 * 1000) - (5 * 60 * 1000)).toISOString().replace('T', ' ').substring(0, 19)
+                        document.getElementById("no_records_msg").classList.add("d-none")
+                        data.data.forEach(element => {
+                            let row = document.createElement("div")
+                            row.classList.add("row")
+                            row.classList.add("my-2")
+                            row.classList.add("py-2")
+                            if (element.data.timestamp <= limit2) {
+                                row.classList.add("bg-danger-subtle")
+                            } else if (element.data.timestamp >= limit2 && element.data.timestamp <= limit1) {
+                                row.classList.add("bg-warning-subtle")
+                            } else {
+                                row.classList.add("bg-success-subtle")
+                            }
+                            let timecol = document.createElement("div")
+                            timecol.classList.add("col-4")
+                            timecol.innerHTML = element.data.timestamp
+                            let nodecol = document.createElement("div")
+                            nodecol.classList.add("col-4")
+                            nodecol.classList.add("fw-bold")
+                            nodecol.classList.add("fs-4")
+                            nodecol.innerHTML = element._id
+                            let statuscol = document.createElement("div")
+                            statuscol.classList.add("col-2")
+                            statuscol.classList.add("text-center")
+                            statuscol.classList.add("my-0")
+                            statuscol.classList.add("border")
+                            statuscol.classList.add("border-dark")
+                            if ("predicted" in element.data) {
+                                disabled = 1
+                                Object.keys(element.data.predicted).forEach(pollutant => {
+                                    if (element.data.predicted[pollutant] > 0) {
+                                        disabled = 0
+                                    }
+                                });
+                                if (disabled == 1) {
+                                    statuscol.classList.add("bg-secondary-subtle")
+                                    statuscol.innerHTML = "N/A"
+                                } else {
+                                    faulty = 0
+                                    Object.keys(element.data.status).forEach(pollutant => {
+                                        if (element.data.status[pollutant] == -1) {
+                                            faulty = 2
+                                            statuscol.innerHTML += `<div style="color: red;"><b>${pollutant} : ${element.data.status[pollutant]}</b></div>`;
+                                        }
+                                        if (element.data.status[pollutant] > 0) {
+                                            if (faulty != 2) {
+                                                faulty = 1
+                                            }
+                                            statuscol.innerHTML += `<div style="color: brown;"><b>${pollutant} : ${element.data.status[pollutant]}</b></div>`;
+                                        } else {
+                                            statuscol.innerHTML += `<div style="color: green;"><b>${pollutant} : ${element.data.status[pollutant]}</b></div>`;
+                                        }
+                                    });
+                                    if (faulty == 0) {
+                                        statuscol.classList.add("bg-success-subtle")
+                                    } else if (faulty == 1) {
+                                        statuscol.classList.add("bg-warning-subtle")
+                                    } else if (faulty == 2) {
+                                        statuscol.classList.add("bg-danger-subtle")
+                                    }
+                                }
+                            } else {
+                                statuscol.classList.add("bg-secondary-subtle")
+                                statuscol.innerHTML = "N/A"
+                            }
+                            row.appendChild(nodecol)
+                            row.appendChild(timecol)
+                            row.appendChild(statuscol)
+                            row.onclick = function () {
+                                activejson = element.data
+                                const myModal = new bootstrap.Modal(document.getElementById('dataModal'));
+                                myModal.show();
+                                dataModalLabel.innerHTML = element._id
+                                dataModalBody.innerHTML = renderJSON(element.data)
+                            }
+                            document.getElementById("row_fields").appendChild(row)
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                });
+        }
+        copybutton.onclick = async function () {
+            try {
+                await navigator.clipboard.writeText(JSON.stringify(activejson));
+                /* Resolved - text copied to clipboard successfully */
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                /* Rejected - text failed to copy to the clipboard */
+            }
+        }
+        window.onload = render_function()
+        let intervalId = setInterval(render_function, 30000);
+    </script>
+
+
+    <!-- Bootstrap JS and Popper.js (from CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+</body>
+
+</html>
